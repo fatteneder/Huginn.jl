@@ -6,6 +6,7 @@ using GtkObservables.Gtk
 using GtkObservables.Gtk.ShortNames
 using CairoMakie
 using CairoMakie.Makie
+using CairoMakie.Cairo
 import CairoMakie.Mouse, CairoMakie.MouseEventTypes, CairoMakie.Keyboard
 
 
@@ -43,6 +44,7 @@ function cairo_mwe()
     push!(window, c)
 
     function drawonto(canvas, figure)
+        # println("Drawing...")
         @guarded draw(canvas) do _
             w[] = Gtk.width(window)
             h[] = Gtk.height(window)
@@ -54,10 +56,9 @@ function cairo_mwe()
     end
 
     f = Figure()
-    bbox = f.layout.layoutobservables.computedbbox
     ax = Axis(f[1,1])
     # heatmap!(ax, rand(50, 50))
-    lines!(ax, 1:4, 1:4)
+    lines!(ax, 1:10, 1:10)
     redraw = () -> drawonto(c.widget, f)
     redraw()
     e = events(f.scene)
@@ -67,75 +68,94 @@ function cairo_mwe()
 
     onany(w, h) do w, h
         e.window_area[] = Rect2i(0, 0, w[], h[])
+        set_coordinates(c, BoundingBox(0, w[], 0, h[]))
     end
 
-    obs = [ getproperty(e, name)
-            for name in propertynames(e)
-            if getproperty(e, name) isa Observable && name !== :window_area ]
-    @guarded onany(obs...) do obs...
-        redraw()
-    end
+    # obs = [ getproperty(e, name)
+    #         for name in propertynames(e)
+    #         if getproperty(e, name) isa Observable && name !== :window_area ]
+    # @guarded onany(obs...) do obs...
+    #     redraw()
+    # end
 
     @guarded on(c.mouse.buttonpress) do event
         println("press...")
         x, y = event.position.x, h[] - event.position.y
         prev_pos = e.mouseposition[]
+        anyupdate = false
         if (x,y) != prev_pos
             e.mouseposition[] = (x,y)
+            anyupdate = true
         end
         btn = mousebutton(event.button)
         if e.mousebutton[] != btn
             e.mousebutton[] = Makie.MouseButtonEvent(btn, Mouse.press)
+            anyupdate = true
         end
         kbtn = keyboardbutton(event.modifiers)
         for kb in kbtn
             e.keyboardbutton[] = Makie.KeyEvent(kb, Keyboard.press)
+            anyupdate = true
         end
+        anyupdate && redraw()
     end
     @guarded on(c.mouse.buttonrelease) do event
         println("release...")
         x, y = event.position.x, h[] - event.position.y
         prev_pos = e.mouseposition[]
+        anyupdate = false
         if (x,y) != prev_pos
             e.mouseposition[] = (x,y)
+            anyupdate = true
         end
         btn = mousebutton(event.button)
         if e.mousebutton[] != btn
             e.mousebutton[] = Makie.MouseButtonEvent(btn, Mouse.release)
+            anyupdate = true
         end
         kbtn = keyboardbutton(event.modifiers)
         for kb in kbtn
             e.keyboardbutton[] = Makie.KeyEvent(kb, Keyboard.release)
+            anyupdate = true
         end
+        anyupdate && redraw()
     end
     @guarded on(c.mouse.motion) do event
-        # println("motion...")
+        println("motion...")
         x, y = event.position.x, h[] - event.position.y
         prev_pos = e.mouseposition[]
+        anyupdate = false
         if (x,y) != prev_pos
             e.mouseposition[] = (x,y)
+            anyupdate = true
         end
-        btn = mousebutton(event.button)
-        if e.mousebutton[] != btn
-            e.mousebutton[] = Makie.MouseButtonEvent(btn, e.mousebutton[].action)
-        end
+        # btn = mousebutton(event.button)
+        # if e.mousebutton[] != btn
+        #     e.mousebutton[] = Makie.MouseButtonEvent(btn, e.mousebutton[].action)
+        # end
         kbtn = keyboardbutton(event.modifiers)
         for kb in kbtn
             e.keyboardbutton[] = Makie.KeyEvent(kb, e.keyboardbutton[].action)
+            anyupdate = true
         end
+        anyupdate && redraw()
     end
     @guarded on(c.mouse.scroll) do event
-        # println("scroll...")
+        println("scroll...")
         x, y = event.position.x, h[] - event.position.y
         prev_pos = e.mouseposition[]
+        anyupdate = false
         if (x,y) != prev_pos
             e.mouseposition[] = (x,y)
+            anyupdate = true
         end
         e.scroll[] = mousescroll(event.direction)
         kbtn = keyboardbutton(event.modifiers)
         for kb in kbtn
             e.keyboardbutton[] = Makie.KeyEvent(kb, e.keyboardbutton[].action)
+            anyupdate = true
         end
+        anyupdate && redraw()
     end
 
     showall(window)
